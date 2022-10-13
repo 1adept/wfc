@@ -1,21 +1,98 @@
-use crate::{domain::Domain, pattern::Pattern};
-use grid::*;
 use rand::Rng;
 
-pub trait Wave<T>
+use crate::{Module, Pattern};
+
+pub struct Wave<T>
 where
     T: Clone + PartialEq,
 {
-    fn new(modules: Pattern<T>) -> Self;
-    fn modules(&self) -> &[T];
-    fn connections_of(&self, id: usize) -> &[usize];
+    modules: Vec<Module<T>>,
+    dict: Vec<Vec<usize>>,
+}
 
-    /// `ids` is not guaranteed to contain all IDs of the `Pattern`
-    fn solve_from(&self, ids: &[usize]) -> usize;
+impl<T> Wave<T>
+where
+    T: Clone + PartialEq,
+{
+    pub fn new(pattern: crate::Pattern<T>) -> Self {
+        let Pattern {
+            values: modules,
+            connections: dict,
+        } = pattern;
+        let dict = dict
+            .into_iter()
+            .map(|c| c.into_iter().collect::<Vec<usize>>())
+            .collect();
+        Self { modules, dict }
+    }
 
-    // Already implemented
+    fn modules(&self) -> &[crate::Module<T>] {
+        &self.modules[..]
+    }
 
-    fn validate(&self, result: &Grid<T>) -> bool {
+    fn connections_of(&self, id: usize) -> &[usize] {
+        &self.dict[id][..]
+    }
+
+    fn solve_from(&self, possible_ids: &[usize]) -> usize {
+        assert!(
+            !possible_ids.is_empty(),
+            "Possible Modules cannot have len() 0"
+        );
+        self.falls_into(possible_ids)
+        // self._fullfills(possible_ids)
+    }
+
+    /// Calculates the sum of all ratings, then a random number is is generated in that range
+    /// The ratings are summed up (rating = sum_of_previous) so theres no 'gaps' and with the random number the first rating is picked that is >= random_number
+    fn falls_into(&self, possible_ids: &[usize]) -> usize {
+        let mut ratings: Vec<_> = possible_ids
+            .iter()
+            .map(|id| (self.modules()[*id].rate() as usize, id))
+            .collect();
+        let sum_ratings: usize = ratings.iter().map(|(rating, _)| rating).sum();
+
+        let mut rand = rand::thread_rng();
+        // let random = rand.gen_range(0..sum_ratings);
+        let random = rand.gen::<usize>() % sum_ratings;
+
+        let mut last_summed_rating = 0;
+        ratings.iter_mut().for_each(|mut rating| {
+            last_summed_rating += rating.0;
+            rating.0 = last_summed_rating;
+        });
+
+        let falls_into = ratings
+            .into_iter()
+            .skip_while(|(rating, _id)| *rating <= random)
+            .take(1)
+            .map(|(_, id)| id)
+            .collect::<Vec<_>>()[0];
+        *falls_into
+    }
+
+    /// Gets MAX(rating) and generates a random number in that range
+    /// Then all ratings below that randomly generated number are collected and one of the remaining IDs is picked
+    fn _fullfills(&self, possible_ids: &[usize]) -> usize {
+        let ratings: Vec<_> = possible_ids
+            .iter()
+            .map(|id| (self.modules()[*id].rate() as usize, id))
+            .collect();
+        let max_rating = ratings.iter().map(|(rating, _)| rating).max().unwrap();
+
+        let mut rand = rand::thread_rng();
+        //A random number to determine which ratings are valid (all >= random_rating)
+        let random = rand.gen_range(0..*max_rating);
+        let fulfills_rating: Vec<_> = ratings
+            .into_iter()
+            .filter(|(rating, _)| *rating >= random)
+            .map(|(_rating, id)| id)
+            .collect();
+        let random = rand.gen_range(0..fulfills_rating.len());
+        *fulfills_rating[random]
+    }
+
+    pub fn validate(&self, result: &grid::Grid<T>) -> bool {
         let validate_with = |item, other: Option<&T>| {
             other
                 .map(|m| self.validate_values_connected(item, m))
@@ -23,13 +100,13 @@ where
         };
 
         result.iter().enumerate().all(|(index, item)| {
-            let position = GridPos::new(index);
+            let position = grid::GridPos::new(index);
             validate_with(item, result.get_at_offset(&position, 0, 1))
                 && validate_with(item, result.get_at_offset(&position, 1, 0))
         })
     }
 
-    fn collapse(&self, width: u8, height: u8) -> Grid<T> {
+    pub fn collapse(&self, width: u8, height: u8) -> grid::Grid<T> {
         let mut domains = self.create_domain_grid(width, height);
 
         while !self.completely_collapsed(&domains) {
@@ -47,7 +124,8 @@ where
 
         self.build_solution_grid(&domains)
     }
-    fn propagate(&self, position: &GridPos, domains: &mut Grid<Domain>) {
+
+    fn propagate(&self, position: &grid::GridPos, domains: &mut grid::Grid<crate::Domain>) {
         let domain = domains.get_mut(position).unwrap();
 
         let module_id = &domain.get_solution();
@@ -71,17 +149,19 @@ where
             }
         }
     }
-    fn create_domain_grid(&self, width: u8, height: u8) -> Grid<Domain> {
-        let size = width * height;
+
+    fn create_domain_grid(&self, width: u8, height: u8) -> grid::Grid<crate::Domain> {
+        let size: u64 = width as u64 * height as u64;
         let num_modules = self.modules().len();
         let domains = (0..size)
             .into_iter()
             .map(|_| (0..num_modules).collect())
-            .map(Domain::new)
-            .collect::<Vec<Domain>>();
-        Grid::new(width as usize, domains)
+            .map(crate::Domain::new)
+            .collect::<Vec<crate::Domain>>();
+        grid::Grid::new(width as usize, domains)
     }
-    fn build_solution_grid(&self, solved_domains: &Grid<Domain>) -> Grid<T> {
+
+    fn build_solution_grid(&self, solved_domains: &grid::Grid<crate::Domain>) -> grid::Grid<T> {
         let width = solved_domains.width();
         let data = solved_domains
             .iter()
@@ -92,34 +172,34 @@ where
                 )
             })
             .collect();
-        Grid::new(width, data)
+        grid::Grid::new(width, data)
     }
 
-    fn completely_collapsed(&self, domains: &Grid<Domain>) -> bool {
-        domains.iter().all(Domain::is_solved)
+    fn completely_collapsed(&self, domains: &grid::Grid<crate::Domain>) -> bool {
+        domains.iter().all(crate::Domain::is_solved)
     }
-    fn find_next_pos_collapse(&self, domains: &Grid<Domain>) -> GridPos {
-        let mut valid_domains: Vec<(usize, &Domain)> = domains
+
+    fn find_next_pos_collapse(&self, domains: &grid::Grid<crate::Domain>) -> grid::GridPos {
+        let mut valid_domains: Vec<(usize, &crate::Domain)> = domains
             .iter()
             .enumerate()
             .filter(|(_grid_index, dom)| !dom.is_solved())
             .collect();
         valid_domains.sort_by_key(|(_, dom)| dom.entropy());
         let min_entropy = valid_domains[0].1.entropy();
-        let min_positions: Vec<(usize, &Domain)> = valid_domains
+        let min_positions: Vec<(usize, &crate::Domain)> = valid_domains
             .into_iter()
             .take_while(|(_, dom)| min_entropy == dom.entropy())
             .collect();
 
         let random_min_pos = min_positions[rand::thread_rng().gen_range(0..min_positions.len())].0;
-        GridPos::new(random_min_pos)
+        grid::GridPos::new(random_min_pos)
     }
-
-    // --- Utils
 
     fn get_solution_value(&self, id: &usize) -> T {
-        self.modules()[*id].clone()
+        self.modules()[*id].value().clone()
     }
+
     fn validate_values_connected(&self, value: &T, other: &T) -> bool {
         let value1 = self.find_id(value);
         let value2 = self.find_id(other);
@@ -130,7 +210,10 @@ where
             false
         }
     }
+
     fn find_id(&self, value: &T) -> Option<usize> {
-        self.modules().iter().position(|inner| inner == value)
+        self.modules()
+            .iter()
+            .position(|inner| inner.value() == value)
     }
 }

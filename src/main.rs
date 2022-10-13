@@ -1,7 +1,7 @@
 use wfc_v2::*;
 
 fn main() {
-    const SIZE: u8 = 10;
+    const SIZE: u8 = 25;
 
     let a = 1;
     let b = 2;
@@ -9,17 +9,16 @@ fn main() {
     let d = 4;
 
     let mut pattern = Pattern::new();
-    let a = pattern.add(a);
-    let b = pattern.add(b);
-    let c = pattern.add(c);
-    let d = pattern.add(d);
+    let a = pattern.add(Module::Basic { value: a });
+    let b = pattern.add(Module::Basic { value: b });
+    let c = pattern.add(Module::Basic { value: c });
+    let d = pattern.add(Module::Basic { value: d });
 
-    pattern.connect(&a, &b);
-    pattern.connect(&a, &c);
-    pattern.connect(&d, &b);
-    pattern.connect(&d, &c);
+    pattern.connect_all(&vec![a, b, c]);
+    pattern.connect_all(&vec![d, b, c]);
 
-    let wave = BasicWave::new(pattern);
+    let wave = Wave::new(pattern);
+
     let result = wave.collapse(SIZE, SIZE);
     let is_valid = wave.validate(&result);
 

@@ -1,10 +1,10 @@
-mod basic;
+mod advanced;
 mod domain;
-mod wave;
+mod modules;
 mod pattern;
-mod frequency;
+mod wave;
 
-pub use basic::BasicWave;
 pub use domain::Domain;
+pub use modules::{AdvancedModule, Module};
+pub use pattern::{ModuleId, Pattern};
 pub use wave::Wave;
-pub use pattern::Pattern;
