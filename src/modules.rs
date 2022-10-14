@@ -19,7 +19,7 @@ where
 
     pub(crate) fn is_useable(&self) -> bool {
         match self {
-            Module::Basic { value } => true,
+            Module::Basic { value: _ } => true,
             Module::Advanced { module } => module.is_useable(),
         }
     }
@@ -35,6 +35,21 @@ where
         match self {
             Module::Basic { value: _ } => 1,
             Module::Advanced { module } => module.rate(),
+        }
+    }
+}
+
+impl<T> PartialEq for Module<T>
+where
+    T: Clone + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Basic { value: l_value }, Self::Basic { value: r_value }) => l_value == r_value,
+            (Self::Advanced { module: l_module }, Self::Advanced { module: r_module }) => {
+                l_module.value() == r_module.value() && matches!(l_module, _r_module)
+            }
+            _ => false,
         }
     }
 }

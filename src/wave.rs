@@ -15,6 +15,7 @@ impl<T> Wave<T>
 where
     T: Clone + PartialEq,
 {
+    #[must_use]
     pub fn new(pattern: crate::Pattern<T>) -> Self {
         let Pattern {
             values: modules,
@@ -22,7 +23,7 @@ where
         } = pattern;
         let dict = dict
             .into_iter()
-            .map(|c| c.into_iter().map(ModuleId::new).collect::<Vec<_>>())
+            .map(|c| c.into_iter().collect::<Vec<_>>())
             .collect();
         Self { modules, dict }
     }
@@ -42,7 +43,7 @@ where
     }
 
     /// Calculates the sum of all ratings, then a random number is is generated in that range
-    /// The ratings are summed up (rating = sum_of_previous) so theres no 'gaps' and with the random number the first rating is picked that is >= random_number
+    /// The ratings are summed up (rating = `sum_of_previous`) so theres no 'gaps' and with the random number the first rating is picked that is >= `random_number`
     fn falls_into(&self, possible_ids: &[ModuleId]) -> ModuleId {
         let mut ratings: Vec<_> = possible_ids
             .iter()
@@ -55,10 +56,10 @@ where
         let random = rand.gen::<usize>() % sum_ratings;
 
         let mut last_summed_rating = 0;
-        ratings.iter_mut().for_each(|mut rating| {
+        for mut rating in &mut ratings.iter_mut() {
             last_summed_rating += rating.0;
             rating.0 = last_summed_rating;
-        });
+        }
 
         let falls_into = ratings
             .into_iter()
@@ -90,11 +91,10 @@ where
         *fulfills_rating[random]
     }
 
+    #[must_use]
     pub fn validate(&self, result: &Grid<T>) -> bool {
         let validate_with = |item, other: Option<&T>| {
-            other
-                .map(|m| self.validate_values_connected(item, m))
-                .unwrap_or(true) //If other is none, then `item` is valid because it CANNOT be invalid
+            other.map_or(true, |m| self.validate_values_connected(item, m)) //If other is none, then `item` is valid because it CANNOT be invalid
         };
 
         result.iter().enumerate().all(|(index, item)| {
@@ -104,27 +104,30 @@ where
         })
     }
 
+    /// Collapse wave
+    ///
+    /// # Panics
+    /// panics when a grid-cell is encountered, that is already solved
     pub fn collapse(&mut self, width: u8, height: u8) -> Grid<T> {
         let mut domains = self.create_domain_grid(width, height);
 
-        while !self.completely_collapsed(&domains) {
-            let next_collapse_pos = self.find_next_pos_collapse(&domains);
+        while !Wave::<T>::completely_collapsed(&domains) {
+            let next_collapse_pos = Wave::<T>::find_next_pos_collapse(&domains);
             let dom = domains.get_mut(&next_collapse_pos).unwrap();
 
-            if dom.is_solved() {
-                panic!("ALREADY SOLVED !!!");
-            }
-            //Solve from own possible Modules
-            dom.solve(&self.solve_from(&dom));
+            assert!(!dom.is_solved(), "Tried solving a domain that is already solved. Therefore collapse failed somewhere!");
 
-            self.propagate(&next_collapse_pos, &mut domains);
+            //Solve from own possible Modules
+            dom.solve(self.solve_from(dom));
+
+            self.propagate(next_collapse_pos, &mut domains);
         }
 
         self.build_solution_grid(&domains)
     }
 
-    fn propagate(&self, position: &GridPos, domains: &mut Grid<Domain>) {
-        let domain = domains.get_mut(position).unwrap();
+    fn propagate(&self, position: GridPos, domains: &mut Grid<Domain>) {
+        let domain = domains.get_mut(&position).unwrap();
 
         let module_id = &domain.get_solution();
 
@@ -138,23 +141,19 @@ where
             return; //ALL modules possible. No point in continueing
         }
 
-        for neighbor_pos in domains.get_neighbors_flat(position) {
+        for neighbor_pos in domains.get_neighbors_flat(&position) {
             let neighbord_domain = domains.get_mut(&neighbor_pos).unwrap();
             // retain those modules, which are valid for the source #domain
             if neighbord_domain.retain(possible_neighbor_modules) {
                 //Count changed -> propagate change to neighbors
-                self.propagate(&neighbor_pos, domains);
+                self.propagate(neighbor_pos, domains);
             }
         }
     }
 
     fn create_domain_grid(&self, width: u8, height: u8) -> Grid<Domain> {
-        let size: u64 = width as u64 * height as u64;
-        let num_modules = {
-            let ref this = self;
-            &this.modules[..]
-        }
-        .len();
+        let size: u64 = u64::from(width) * u64::from(height);
+        let num_modules = self.modules.len();
         let domains = (0..size)
             .into_iter()
             .map(|_| (0..num_modules).map(ModuleId::new).collect())
@@ -169,7 +168,7 @@ where
             .iter()
             .map(|dom| {
                 self.get_solution_value(
-                    &dom.get_solution()
+                    dom.get_solution()
                         .expect("Trying to build solution of unsolved WFC!"),
                 )
             })
@@ -177,11 +176,11 @@ where
         Grid::new(width, data)
     }
 
-    fn completely_collapsed(&self, domains: &Grid<Domain>) -> bool {
+    fn completely_collapsed(domains: &Grid<Domain>) -> bool {
         domains.iter().all(Domain::is_solved)
     }
 
-    fn find_next_pos_collapse(&self, domains: &Grid<Domain>) -> GridPos {
+    fn find_next_pos_collapse(domains: &Grid<Domain>) -> GridPos {
         let mut valid_domains: Vec<(usize, &Domain)> = domains
             .iter()
             .enumerate()
@@ -198,7 +197,7 @@ where
         GridPos::new(random_min_pos)
     }
 
-    fn get_solution_value(&self, id: &ModuleId) -> T {
+    fn get_solution_value(&self, id: ModuleId) -> T {
         self.modules[id.id].value().clone()
     }
 
@@ -225,7 +224,7 @@ where
             .possible_modules
             .iter()
             .filter(|id| self.modules[id.id].is_useable())
-            .map(|id| *id)
+            .copied()
             .collect::<Vec<_>>()
     }
 }

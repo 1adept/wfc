@@ -8,6 +8,7 @@ pub struct Freq<T> {
 }
 
 impl<T> Freq<T> {
+    #[must_use]
     pub fn new(value: T) -> Self {
         Self {
             value,
@@ -16,10 +17,11 @@ impl<T> Freq<T> {
             uses: 0,
         }
     }
-
+    #[must_use]
     pub fn limit(self, limit: u8) -> Self {
         Self { limit, ..self }
     }
+    #[must_use]
     pub fn frequency(self, freq: u8) -> Self {
         Self { freq, ..self }
     }

@@ -1,10 +1,12 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashSet},
+};
 
-use grid::Grid;
 
-use crate::Module;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+use crate::{Module};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleId {
     pub(crate) id: usize,
 }
@@ -20,13 +22,14 @@ where
     T: Clone + PartialEq,
 {
     pub(crate) values: Vec<Module<T>>,
-    pub(crate) connections: Vec<HashSet<usize>>,
+    pub(crate) connections: Vec<HashSet<ModuleId>>,
 }
 
 impl<T> Pattern<T>
 where
     T: Clone + PartialEq,
 {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             values: Vec::new(),
@@ -43,13 +46,14 @@ where
         let id = self.values.len();
         self.values.push(value);
         self.connections.push(HashSet::new());
-        self.connections[id].insert(id);
-        ModuleId { id }
+        let mod_id = ModuleId::new(id);
+        self.connections[id].insert(mod_id);
+        mod_id
     }
 
     pub fn connect(&mut self, left: &ModuleId, right: &ModuleId) {
-        self.connections[left.id].insert(right.id);
-        self.connections[right.id].insert(left.id);
+        self.connections[left.id].insert(*right);
+        self.connections[right.id].insert(*left);
     }
 
     pub fn connect_each(&mut self, from: &ModuleId, to_modules: &[ModuleId]) {
@@ -82,23 +86,5 @@ where
             values: Vec::new(),
             connections: Vec::new(),
         }
-    }
-}
-
-impl<T> From<&[&[T]]> for Pattern<T>
-where
-    T: Clone + PartialEq,
-{
-    fn from(data: &[&[T]]) -> Self {
-        todo!()
-    }
-}
-
-impl<T> From<Grid<T>> for Pattern<T>
-where
-    T: Clone + PartialEq,
-{
-    fn from(_: Grid<T>) -> Self {
-        todo!()
     }
 }

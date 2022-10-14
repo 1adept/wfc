@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::ModuleId;
 
-/// Domain tracks the indices of modules that are possible for a location in a WaveFunctionCollapse
+/// Domain tracks the indices of modules that are possible for a location in a `WaveFunctionCollapse`
 pub struct Domain {
     pub(crate) possible_modules: Vec<ModuleId>,
 }
@@ -12,7 +12,7 @@ impl Domain {
         Self { possible_modules }
     }
 
-    pub(crate) fn solve(&mut self, solved_id: &ModuleId) {
+    pub(crate) fn solve(&mut self, solved_id: ModuleId) {
         self.possible_modules.retain(|id| id.id == solved_id.id);
     }
 
