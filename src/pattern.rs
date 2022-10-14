@@ -1,10 +1,18 @@
 use std::collections::HashSet;
 
+use grid::Grid;
+
 use crate::Module;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ModuleId {
-    id: usize,
+    pub(crate) id: usize,
+}
+
+impl ModuleId {
+    pub(crate) fn new(id: usize) -> Self {
+        ModuleId { id }
+    }
 }
 
 pub struct Pattern<T>
@@ -44,6 +52,10 @@ where
         self.connections[right.id].insert(left.id);
     }
 
+    pub fn connect_each(&mut self, from: &ModuleId, to_modules: &[ModuleId]) {
+        to_modules.iter().for_each(|m| self.connect(from, m));
+    }
+
     pub fn connect_all(&mut self, modules: &[ModuleId]) {
         modules
             .iter()
@@ -70,5 +82,23 @@ where
             values: Vec::new(),
             connections: Vec::new(),
         }
+    }
+}
+
+impl<T> From<&[&[T]]> for Pattern<T>
+where
+    T: Clone + PartialEq,
+{
+    fn from(data: &[&[T]]) -> Self {
+        todo!()
+    }
+}
+
+impl<T> From<Grid<T>> for Pattern<T>
+where
+    T: Clone + PartialEq,
+{
+    fn from(_: Grid<T>) -> Self {
+        todo!()
     }
 }

@@ -10,14 +10,28 @@ impl<T> Module<T>
 where
     T: Clone + PartialEq,
 {
-    pub fn value(&self) -> &T {
+    pub(crate) fn value(&self) -> &T {
         match self {
             Module::Basic { value } => value,
             Module::Advanced { module } => module.value(),
         }
     }
 
-    pub fn rate(&self) -> u8 {
+    pub(crate) fn is_useable(&self) -> bool {
+        match self {
+            Module::Basic { value } => true,
+            Module::Advanced { module } => module.is_useable(),
+        }
+    }
+
+    pub(crate) fn use_module(&mut self) {
+        match self {
+            Module::Basic { value: _ } => (),
+            Module::Advanced { module } => module.use_module(),
+        }
+    }
+
+    pub(crate) fn rate(&self) -> u8 {
         match self {
             Module::Basic { value: _ } => 1,
             Module::Advanced { module } => module.rate(),

@@ -1,17 +1,19 @@
 use std::fmt::Display;
 
+use crate::ModuleId;
+
 /// Domain tracks the indices of modules that are possible for a location in a WaveFunctionCollapse
 pub struct Domain {
-    pub(crate) possible_modules: Vec<usize>,
+    pub(crate) possible_modules: Vec<ModuleId>,
 }
 
 impl Domain {
-    pub(crate) fn new(possible_modules: Vec<usize>) -> Self {
+    pub(crate) fn new(possible_modules: Vec<ModuleId>) -> Self {
         Self { possible_modules }
     }
 
-    pub(crate) fn solve(&mut self, solved_id: &usize) {
-        self.possible_modules.retain(|id| id == solved_id);
+    pub(crate) fn solve(&mut self, solved_id: &ModuleId) {
+        self.possible_modules.retain(|id| id.id == solved_id.id);
     }
 
     pub(crate) fn entropy(&self) -> usize {
@@ -22,7 +24,7 @@ impl Domain {
         self.entropy() == 1
     }
 
-    pub(crate) fn get_solution(&self) -> Option<usize> {
+    pub(crate) fn get_solution(&self) -> Option<ModuleId> {
         if self.is_solved() {
             Some(self.possible_modules[0])
         } else {
@@ -30,7 +32,7 @@ impl Domain {
         }
     }
 
-    pub(crate) fn retain(&mut self, valid: &[usize]) -> bool {
+    pub(crate) fn retain(&mut self, valid: &[ModuleId]) -> bool {
         let count_before = self.possible_modules.len();
         self.possible_modules
             .retain(|mod_id| valid.contains(mod_id));

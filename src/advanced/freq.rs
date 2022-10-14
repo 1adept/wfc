@@ -7,6 +7,24 @@ pub struct Freq<T> {
     uses: u8,
 }
 
+impl<T> Freq<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            value,
+            limit: u8::MAX,
+            freq: 1,
+            uses: 0,
+        }
+    }
+
+    pub fn limit(self, limit: u8) -> Self {
+        Self { limit, ..self }
+    }
+    pub fn frequency(self, freq: u8) -> Self {
+        Self { freq, ..self }
+    }
+}
+
 impl<T> AdvancedModule<T> for Freq<T>
 where
     T: Clone + PartialEq,
